@@ -1,83 +1,67 @@
-import HashMap "mo:base/HashMap";
+import Array "mo:base/Array";
 import Nat "mo:base/Nat";
-import Iter "mo:base/Iter";
-import Nat32 "mo:base/Nat32";
 import Text "mo:base/Text";
+import Time "mo:base/Time";
 import Principal "mo:base/Principal";
-import Debug "mo:base/Debug";
 
-actor PostCrud {
-	public type ImageObject = [Nat8];
+// Define el tipo de datos para representar una tarea
+actor Welcome {
+  public query func greet(name : Text) : async Text {
+    return "Welcome " # name # " to EnfoKT";
+  };
 
-	type PostId = Nat32;
-	type Post = {
-		creator: Text;
-		message: Text;
-		image: ImageObject;
-	};
+  type User = Principal;
 
-	stable var postId: PostId = 0;
-	let postList = HashMap.HashMap<Text, Post>(0, Text.equal, Text.hash);
+  type Task = {
+    id : Nat;
+    name : Text;
+    description : Text;
+    dateCreated : Time;
+  };
 
-	private func generatePostId() : Nat32 {
-		postId += 1;
-		return postId;
-	};
+  // Lista de tareas almacenadas en la cadena de bloques
+  var tasks : [Task] = [];
 
-	public query ({caller}) func whoami() : async Principal {
-		return caller;
-	};
+  // Función para agregar una nueva tarea
+  public func addTask(name : Text, description : Text) : async Nat {
+    let newTask : Task = {
+      id = tasks.length + 1;
+      name = name;
+      description = description;
+      datteCreated = Time.now();
+    };
+    tasks := tasks ++ [newTask];
+    return newTask.id;
+  };
 
-	public shared (msg) func createPost(message: Text, image: ImageObject) : async () {
-		let user: Text = Principal.toText(msg.caller);
-		let post = {creator=user; message=message; image=image};
+  // Función para obtener la lista de tareas
+  public func getTasks() : async [Task] {
+    return tasks;
+  };
 
-		postList.put(Nat32.toText(generatePostId()), post);
-		Debug.print("New post created! ID: " # Nat32.toText(postId));
-		return ();
-	};
+  // Función para actualizar una tarea existente
+  public func updateTask(id : Nat, name : Text, description : Text) : async Bool {
+    let updatedTasks = Array.map(
+      tasks,
+      {
+        task | if (task.id == id) {
+          { id; name; description; dateCreated = task.dateCreated };
+        } else {
+          task;
+        };
+      },
+    );
+    tasks := updatedTasks;
+    return true;
+  };
 
-	public query func getPosts () : async [(Text, Post)] {
-		let postIter : Iter.Iter<(Text, Post)> = postList.entries();
-		let postArray : [(Text, Post)] = Iter.toArray(postIter);
-
-		return postArray;
-	};
-
-	public query func getPost (id: Text) : async ?Post {
-		let post: ?Post = postList.get(id);
-		return post;
-	};
-
-	public shared (msg) func updatePost (id: Text, message: Text) : async Bool {
-		let user: Text = Principal.toText(msg.caller);
-		let post: ?Post = postList.get(id);
-
-		switch (post) {
-			case (null) {
-				return false;
-			};
-			case (?currentPost) {
-				let newPost: Post = {creator=user; message=message; image=currentPost.image};
-				postList.put(id, newPost);
-				Debug.print("Updated post with ID: " # id);
-				return true;
-			};
-		};
-
-	};
-
-	public func deletePost (id: Text) : async Bool {
-		let post : ?Post = postList.get(id);
-		switch (post) {
-			case (null) {
-				return false;
-			};
-			case (_) {
-				ignore postList.remove(id);
-				Debug.print("Delete post with ID: " # id);
-				return true;
-			};
-		};
-	};
-}
+  // Función para eliminar una tarea
+  public func deleteTask(id : Nat) : async Bool {
+    if (id <= Array.length(tasks)) {
+      tasks := Array.remove(id - 1, tasks);
+      return true;
+    } else {
+      return false;
+    };
+  };
+};
